@@ -1,9 +1,16 @@
 // Core simulation types. Pure data — the whole sim is testable without a
 // browser. Rendering reads these; it never owns them.
 
-export type Team = "blue" | "red";
+export type Team = "blue" | "red" | "neutral";
 export type Lane = "top" | "mid" | "bot";
-export type UnitKind = "minion" | "tower" | "nexus" | "hero";
+export type UnitKind = "minion" | "tower" | "nexus" | "hero" | "camp";
+
+/** A temporary damage multiplier — from a jungle camp (personal) or the
+ * epic monster (team-wide). Inert once world.time passes expiresAt. */
+export interface Buff {
+  dmgMul: number;
+  expiresAt: number;
+}
 
 export interface Vec2 {
   x: number;
@@ -66,6 +73,14 @@ export interface Unit {
   abilityReadyAt?: Record<string, number>;
   /** Damage-absorbing shield; consumed before hp. */
   shieldHp?: number;
+
+  // ── jungle (M5) ───────────────────────────────────────────────────────
+  /** Personal damage buff (from killing a jungle camp). */
+  buff?: Buff;
+  /** Camp tier — small camps buff the killer, the epic buffs the team. */
+  campTier?: "small" | "epic";
+  /** A camp's home position — it leashes here and never roams. */
+  leashHome?: Vec2;
 }
 
 export type SimEventKind =
@@ -97,6 +112,8 @@ export interface World {
   waveCount: number;
   matchOver: boolean;
   winner: Team | null;
+  /** Team-wide damage buff from the epic monster. */
+  teamBuff: { blue: Buff | null; red: Buff | null };
   /** Events produced by the most recent stepWorld call. The renderer and
    * voice layers consume + clear this each frame. */
   events: SimEvent[];

@@ -2,9 +2,10 @@
 // provides spawn helpers for minions and heroes.
 
 import {
-  BLUE_NEXUS_TOWER_OFFSETS, BLUE_TOWER_T, FIRST_WAVE_AT, LANES, MAP_SIZE,
-  RED_NEXUS_TOWER_OFFSETS, RED_TOWER_T, TUNING, nexusPos,
+  BLUE_NEXUS_TOWER_OFFSETS, BLUE_TOWER_T, CAMPS, CAMP_TUNING, FIRST_WAVE_AT,
+  LANES, MAP_SIZE, RED_NEXUS_TOWER_OFFSETS, RED_TOWER_T, TUNING, nexusPos,
 } from "./config";
+import type { CampSpec } from "./config";
 import { lanePointAt } from "./lanes";
 import { ROSTER, type HeroDef } from "./roster";
 import type { Lane, Team, Unit, Vec2, World } from "./types";
@@ -68,6 +69,19 @@ export function spawnMinion(world: World, team: Team, lane: Lane): Unit {
   return m;
 }
 
+/** A neutral jungle camp — stationary, hostile to both teams, leashes to
+ * its spawn. Killing it grants a buff (see combat.ts grantCampBuff). */
+export function spawnCamp(world: World, spec: CampSpec): Unit {
+  const t = CAMP_TUNING[spec.tier];
+  const c = makeUnit({
+    id: spec.id, team: "neutral", kind: "camp", pos: spec.pos,
+    maxHp: t.hp, attackRange: t.range, dps: t.dps,
+    campTier: spec.tier, leashHome: { ...spec.pos },
+  });
+  world.units.push(c);
+  return c;
+}
+
 export function spawnHero(
   world: World, team: Team, def: HeroDef, rosterIndex: number, pos: Vec2,
 ): Unit {
@@ -91,11 +105,14 @@ export function createWorld(): World {
     waveCount: 0,
     matchOver: false,
     winner: null,
+    teamBuff: { blue: null, red: null },
     events: [],
   };
 
   spawnNexus(world, "blue");
   spawnNexus(world, "red");
+
+  for (const spec of CAMPS) spawnCamp(world, spec);
 
   for (const lane of LANES) {
     for (let i = 0; i < BLUE_TOWER_T.length; i++) {

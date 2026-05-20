@@ -53,6 +53,38 @@ export const TUNING = {
   fireInterval: 0.18, // throttle for tracer/visual events
 };
 
+// ── jungle (M5) ─────────────────────────────────────────────────────────────
+/** A neutral camp's static placement. Small camps tuck between lanes; the
+ * epic sits in the river. ids are stable so meshes/tests can address them. */
+export interface CampSpec {
+  id: string;
+  tier: "small" | "epic";
+  pos: Vec2;
+}
+
+// Four small camps — one per jungle quadrant — plus the epic in the river.
+export const CAMPS: CampSpec[] = [
+  { id: "camp-blue-top", tier: "small", pos: { x: 50, z: 94 } },
+  { id: "camp-blue-bot", tier: "small", pos: { x: 94, z: 50 } },
+  { id: "camp-red-top", tier: "small", pos: { x: 106, z: 150 } },
+  { id: "camp-red-bot", tier: "small", pos: { x: 150, z: 106 } },
+  { id: "camp-epic", tier: "epic", pos: { x: 76, z: 120 } },
+];
+
+/** Camp combat stats. `leash` is the aggro radius — a camp never roams,
+ * it only fights what steps inside this circle. */
+export const CAMP_TUNING = {
+  small: { hp: 620, range: 13, dps: 38, leash: 24 },
+  epic: { hp: 2600, range: 17, dps: 90, leash: 30 },
+};
+
+/** Reward for the killing blow. A small camp buffs its killer (personal,
+ * plus an instant heal); the epic buffs the killer's whole team. */
+export const BUFF = {
+  small: { dmgMul: 1.3, duration: 45, heal: 140 },
+  epic: { dmgMul: 1.25, duration: 90 },
+};
+
 export function nexusPos(team: Team): Vec2 {
   return team === "blue" ? BLUE_BASE : RED_BASE;
 }

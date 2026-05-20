@@ -5,7 +5,12 @@ import * as THREE from "three";
 import { LANE_PATHS, LANES, MAP_SIZE, nexusPos } from "../sim/config";
 import type { Unit, Vec2, World } from "../sim/types";
 
-const TEAM_HEX: Record<string, number> = { blue: 0x4a86ff, red: 0xff5b5b };
+const TEAM_HEX: Record<string, number> = {
+  blue: 0x4a86ff, red: 0xff5b5b, neutral: 0x9a8fb0,
+};
+
+// Jungle camps — small camps neutral grey, the epic an ominous violet.
+const CAMP_HEX = { small: 0x9a8fb0, epic: 0xb066d6 };
 
 interface Tracer {
   line: THREE.Line;
@@ -196,11 +201,18 @@ export class Renderer {
         geo = new THREE.CylinderGeometry(2.6, 3.6, 14, 12); yOffset = 7; break;
       case "nexus":
         geo = new THREE.BoxGeometry(10, 10, 10); yOffset = 6; break;
+      case "camp": {
+        const epic = u.campTier === "epic";
+        geo = new THREE.OctahedronGeometry(epic ? 6.5 : 4);
+        yOffset = epic ? 7 : 4.5; break;
+      }
       case "hero":
       default:
         geo = new THREE.CapsuleGeometry(2, 3.4, 4, 8); yOffset = 4; break;
     }
-    const baseColor = TEAM_HEX[u.team];
+    const baseColor = u.kind === "camp"
+      ? CAMP_HEX[u.campTier ?? "small"]
+      : TEAM_HEX[u.team];
     const mesh = new THREE.Mesh(
       geo, new THREE.MeshStandardMaterial({ color: baseColor }),
     );

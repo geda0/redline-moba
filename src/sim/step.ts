@@ -2,7 +2,8 @@
 // This is the whole game loop; rendering just reads the result.
 
 import {
-  LANE_PATHS, LANES, MINIONS_PER_LANE, TUNING, WAVE_INTERVAL, enemyOf, nexusPos,
+  CAMP_TUNING, LANE_PATHS, LANES, MINIONS_PER_LANE, TUNING, WAVE_INTERVAL,
+  enemyOf, nexusPos,
 } from "./config";
 import { stepHeroAI } from "./ai";
 import { fireAt, inRange, nearestEnemy } from "./combat";
@@ -38,6 +39,7 @@ export function stepWorld(world: World, dt: number): void {
       case "minion": stepMinion(world, u, dt); break;
       case "tower": stepTower(world, u, dt); break;
       case "hero": stepHero(world, u, dt); break;
+      case "camp": stepCamp(world, u, dt); break;
       case "nexus": break; // inert objective
     }
   }
@@ -89,6 +91,16 @@ function stepMinion(world: World, m: Unit, dt: number): void {
 function stepTower(world: World, t: Unit, dt: number): void {
   const target = nearestEnemy(world, t, t.attackRange, (u) => u.kind === "minion");
   if (target) fireAt(world, t, target, dt);
+}
+
+// ── camp ────────────────────────────────────────────────────────────────────
+// A neutral jungle camp never roams. It strikes back at anything — blue or
+// red — that steps inside its leash radius, and stays anchored to its home.
+function stepCamp(world: World, c: Unit, dt: number): void {
+  const leash = CAMP_TUNING[c.campTier ?? "small"].leash;
+  const foe = nearestEnemy(world, c, leash);
+  if (foe && inRange(c, foe)) fireAt(world, c, foe, dt);
+  if (c.leashHome) c.pos = { ...c.leashHome };
 }
 
 // ── hero (mouse pilot / AI / voice all write moveGoal + attackTargetId) ──────

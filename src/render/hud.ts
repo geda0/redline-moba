@@ -116,8 +116,11 @@ export class Hud {
     const mm = Math.floor(world.time / 60);
     const ss = Math.floor(world.time % 60);
     const minions = world.units.filter((u) => u.kind === "minion").length;
-    this.statusEl.textContent =
+    let status =
       `${pad(mm)}:${pad(ss)}   minions ${minions}   wave ${world.waveCount}`;
+    const epic = epicBuffLabel(world);
+    if (epic) status += `   ${epic}`;
+    this.statusEl.textContent = status;
 
     const heroes = blueHeroes(world);
     this.syncRoster(heroes, pilotedIndex, world);
@@ -181,11 +184,16 @@ export class Hud {
       row.classList.toggle("piloted", i === pilotedIndex);
       row.classList.toggle("dead", !!h.isDead);
       const name = row.firstElementChild as HTMLElement;
+      const buffed = h.buff && world.time < h.buff.expiresAt;
       const right = h.isDead
         ? `respawn ${Math.ceil((h.respawnAt ?? 0) - world.time)}s`
         : `${Math.round(h.hp)}/${h.maxHp}`;
+      const buff = buffed
+        ? ` <span style="color:#ffb84d">⚡${Math.ceil(
+            (h.buff!.expiresAt - world.time))}s</span>`
+        : "";
       name.innerHTML =
-        `<span>${i + 1}. ${def.name} <small>${def.role}</small></span>` +
+        `<span>${i + 1}. ${def.name} <small>${def.role}</small>${buff}</span>` +
         `<span>${right}</span>`;
       const fill = row.querySelector("i") as HTMLElement;
       fill.style.width = `${Math.max(0, (h.hp / h.maxHp) * 100)}%`;
@@ -197,6 +205,18 @@ function el(tag: string, cls?: string): HTMLDivElement {
   const e = document.createElement(tag) as HTMLDivElement;
   if (cls) e.className = cls;
   return e;
+}
+
+/** Status-bar label for any active epic (team-wide) buff. */
+function epicBuffLabel(world: World): string {
+  const parts: string[] = [];
+  for (const team of ["blue", "red"] as const) {
+    const b = world.teamBuff[team];
+    if (b && world.time < b.expiresAt) {
+      parts.push(`⚡${team.toUpperCase()} EPIC ${Math.ceil(b.expiresAt - world.time)}s`);
+    }
+  }
+  return parts.join("  ");
 }
 
 function pad(n: number): string {

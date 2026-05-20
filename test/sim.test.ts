@@ -5,19 +5,22 @@ import { describe, expect, it } from "vitest";
 import { castAbility, cooldownRemaining } from "../src/sim/abilities";
 import { applyCommand, resolveCommand } from "../src/sim/commands";
 import { FIRST_WAVE_AT, MINIONS_PER_LANE, nexusPos } from "../src/sim/config";
-import { dealDamage, fireAt, inRange, nearestEnemy } from "../src/sim/combat";
+import {
+  damageMultiplier, dealDamage, fireAt, inRange, nearestEnemy,
+} from "../src/sim/combat";
 import { dist, lanePointAt } from "../src/sim/lanes";
 import { ROSTER } from "../src/sim/roster";
 import { stepWorld } from "../src/sim/step";
 import type { World } from "../src/sim/types";
 import {
-  blueHeroes, createWorld, findUnit, spawnHero, spawnMinion,
+  blueHeroes, createWorld, findUnit, spawnCamp, spawnHero, spawnMinion,
 } from "../src/sim/world";
 
 function bareWorld(): World {
   return {
     time: 0, units: [], nextWaveAt: 1e9, waveCount: 0,
-    matchOver: false, winner: null, events: [],
+    matchOver: false, winner: null,
+    teamBuff: { blue: null, red: null }, events: [],
   };
 }
 
@@ -332,5 +335,93 @@ describe("commands (M4b-1)", () => {
     const d0 = dist(h.pos, nexusPos("red"));
     for (let i = 0; i < 300; i++) stepWorld(w, 0.1);
     expect(dist(h.pos, nexusPos("red"))).toBeLessThan(d0 - 60);
+  });
+});
+
+describe("jungle + objectives (M5)", () => {
+  it("createWorld spawns 4 small camps and 1 epic", () => {
+    const camps = createWorld().units.filter((u) => u.kind === "camp");
+    expect(camps).toHaveLength(5);
+    expect(camps.filter((c) => c.campTier === "small")).toHaveLength(4);
+    expect(camps.filter((c) => c.campTier === "epic")).toHaveLength(1);
+  });
+
+  it("a camp strikes back at a hero inside its leash radius", () => {
+    const w = bareWorld();
+    spawnCamp(w, { id: "c", tier: "small", pos: { x: 50, z: 50 } });
+    const hero = spawnHero(w, "blue", ROSTER[0], 0, { x: 55, z: 50 });
+    const hp0 = hero.hp;
+    stepWorld(w, 0.5);
+    expect(hero.hp).toBeLessThan(hp0);
+  });
+
+  it("a camp ignores a hero outside its leash radius", () => {
+    const w = bareWorld();
+    spawnCamp(w, { id: "c", tier: "small", pos: { x: 50, z: 50 } });
+    const hero = spawnHero(w, "red", ROSTER[0], 0, { x: 999, z: 999 });
+    const hp0 = hero.hp;
+    stepWorld(w, 0.5);
+    expect(hero.hp).toBe(hp0);
+  });
+
+  it("killing a small camp grants its killer a personal buff and a heal", () => {
+    const w = bareWorld();
+    const camp = spawnCamp(w, { id: "c", tier: "small", pos: { x: 50, z: 50 } });
+    const hero = spawnHero(w, "blue", ROSTER[1], 1, { x: 50, z: 50 });
+    hero.hp = hero.maxHp - 300; // wounded — the kill heal should be visible
+    const hpBefore = hero.hp;
+    camp.hp = 10;
+    fireAt(w, hero, camp, 100); // overkill
+    expect(camp.alive).toBe(false);
+    expect(hero.buff).toBeDefined();
+    expect(hero.buff!.dmgMul).toBeGreaterThan(1);
+    expect(hero.hp).toBeGreaterThan(hpBefore);
+    expect(w.teamBuff.blue).toBeNull(); // small camp is personal, not team-wide
+  });
+
+  it("killing the epic grants the killer's team a team-wide buff", () => {
+    const w = bareWorld();
+    const epic = spawnCamp(w, { id: "e", tier: "epic", pos: { x: 100, z: 100 } });
+    const hero = spawnHero(w, "blue", ROSTER[1], 1, { x: 100, z: 100 });
+    epic.hp = 10;
+    fireAt(w, hero, epic, 100);
+    expect(epic.alive).toBe(false);
+    expect(w.teamBuff.blue).not.toBeNull();
+    expect(w.teamBuff.blue!.dmgMul).toBeGreaterThan(1);
+    expect(w.teamBuff.red).toBeNull();
+    expect(hero.buff).toBeUndefined(); // epic is team-wide, not personal
+  });
+
+  it("an ability nuke can kill a camp and earns the buff", () => {
+    const w = bareWorld();
+    const camp = spawnCamp(w, { id: "c", tier: "small", pos: { x: 50, z: 50 } });
+    const pyre = spawnHero(w, "blue", ROSTER[2], 2, { x: 50, z: 50 });
+    camp.hp = 40; // Ember nukes for 130
+    expect(castAbility(w, pyre, "q", { x: 50, z: 50 })).toBe(true);
+    expect(camp.alive).toBe(false);
+    expect(pyre.buff).toBeDefined();
+  });
+
+  it("damageMultiplier amplifies a buffed attacker, then goes inert", () => {
+    const w = bareWorld();
+    const hero = spawnHero(w, "blue", ROSTER[0], 0, { x: 0, z: 0 });
+    expect(damageMultiplier(w, hero)).toBe(1);
+    hero.buff = { dmgMul: 1.3, expiresAt: 10 };
+    w.time = 5;
+    expect(damageMultiplier(w, hero)).toBeCloseTo(1.3);
+    w.time = 20; // past expiry
+    expect(damageMultiplier(w, hero)).toBe(1);
+  });
+
+  it("a buffed hero deals more fire damage than an unbuffed one", () => {
+    const w = bareWorld();
+    const buffed = spawnHero(w, "blue", ROSTER[1], 1, { x: 0, z: 0 });
+    const plain = spawnHero(w, "blue", ROSTER[1], 2, { x: 0, z: 0 });
+    const tgtA = spawnMinion(w, "red", "mid");
+    const tgtB = spawnMinion(w, "red", "mid");
+    buffed.buff = { dmgMul: 1.5, expiresAt: 100 };
+    fireAt(w, buffed, tgtA, 1.0);
+    fireAt(w, plain, tgtB, 1.0);
+    expect(tgtA.maxHp - tgtA.hp).toBeGreaterThan(tgtB.maxHp - tgtB.hp);
   });
 });

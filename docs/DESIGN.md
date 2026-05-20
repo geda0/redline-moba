@@ -120,13 +120,13 @@ See `gemini-live-notes.md` for the non-negotiable Gemini Live setup.
 
 Each phase is a working, tested increment.
 
-| Phase | Deliverable |
-| --- | --- |
-| **M1** | Sim foundation — map, lanes, towers, nexus, minion waves, win condition. Headless-tested. + a three.js renderer that shows it. |
-| **M2** | Heroes — 5v5 spawn, mouse pilot, 1-5 switch, follow camera. |
-| **M3** | Ability kits — Q/W/E/R per hero, cooldowns. |
-| **M4** | AI teammates + voice — lane AI for the 4, Node voice server, live command. |
-| **M5** | Jungle + objectives — neutral camps, buffs, an epic monster. |
+| Phase | Deliverable | Status |
+| --- | --- | --- |
+| **M1** | Sim foundation — map, lanes, towers, nexus, minion waves, win condition. Headless-tested. + a three.js renderer that shows it. | ✅ done |
+| **M2** | Heroes — 5v5 spawn, mouse pilot, 1-5 switch, follow camera. | ✅ done |
+| **M3** | Ability kits — Q/W/E/R per hero, cooldowns. | ✅ done |
+| **M4** | AI teammates + voice — lane AI for the 4, Node voice server, live command. | ✅ done |
+| **M5** | Jungle + objectives — neutral camps, buffs, an epic monster. | ✅ done |
 
 ## 8. What carried over from the prior prototype
 

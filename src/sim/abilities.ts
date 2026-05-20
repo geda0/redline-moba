@@ -3,7 +3,7 @@
 // tuning pass. Drivers (mouse / AI / voice) all call castAbility — the same
 // path, so it is fully headless-testable.
 
-import { dealDamage } from "./combat";
+import { damageMultiplier, dealDamage } from "./combat";
 import { dist } from "./lanes";
 import type { Unit, Vec2, World } from "./types";
 
@@ -107,14 +107,16 @@ export function castAbility(
     : { ...hero.pos };
 
   switch (ability.kind) {
-    case "nuke":
+    case "nuke": {
+      const dmg = ability.amount * damageMultiplier(world, hero);
       for (const u of world.units) {
         if (!u.alive || u.isDead || u.team === hero.team) continue;
         if (dist(u.pos, point) <= ability.radius) {
-          dealDamage(world, u, ability.amount);
+          dealDamage(world, u, dmg, hero);
         }
       }
       break;
+    }
     case "dash":
       hero.pos = { ...point };
       break;
