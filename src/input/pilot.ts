@@ -58,6 +58,8 @@ export class PilotController {
   }
 
   private onKeyDown(e: KeyboardEvent): void {
+    // Ignore game keys while the player is typing a command.
+    if (document.activeElement?.tagName === "INPUT") return;
     const k = e.key.toLowerCase();
     if (k === "a") { this.aHeld = true; return; }
     if (k >= "1" && k <= "5") {

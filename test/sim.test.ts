@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { castAbility, cooldownRemaining } from "../src/sim/abilities";
+import { applyCommand, resolveCommand } from "../src/sim/commands";
 import { FIRST_WAVE_AT, MINIONS_PER_LANE, nexusPos } from "../src/sim/config";
 import { dealDamage, fireAt, inRange, nearestEnemy } from "../src/sim/combat";
 import { dist, lanePointAt } from "../src/sim/lanes";
@@ -277,5 +278,59 @@ describe("hero AI (M4a)", () => {
       (u) => u.kind === "tower" && u.hp < u.maxHp,
     );
     expect(towerHurt).toBe(true);
+  });
+});
+
+describe("commands (M4b-1)", () => {
+  it("parses a hero + verb + lane", () => {
+    const cmd = resolveCommand("blade push top", createWorld(), null);
+    expect(cmd).not.toBeNull();
+    expect(cmd!.heroIds).toEqual(["blue-blade"]);
+    expect(cmd!.directive).toEqual({ kind: "push", lane: "top" });
+  });
+
+  it("'all retreat' targets the 4 teammates, excluding the piloted hero", () => {
+    const w = createWorld();
+    const cmd = resolveCommand("all retreat", w, "blue-vanguard");
+    expect(cmd).not.toBeNull();
+    expect(cmd!.heroIds).toHaveLength(4);
+    expect(cmd!.heroIds).not.toContain("blue-vanguard");
+    expect(cmd!.directive.kind).toBe("retreat");
+  });
+
+  it("'warden follow me' follows the piloted hero", () => {
+    const w = createWorld();
+    const cmd = resolveCommand("warden follow me", w, "blue-pyre");
+    expect(cmd!.heroIds).toEqual(["blue-warden"]);
+    expect(cmd!.directive).toEqual({ kind: "follow", targetId: "blue-pyre" });
+  });
+
+  it("returns null for an unparseable command", () => {
+    expect(resolveCommand("hello there", createWorld(), null)).toBeNull();
+  });
+
+  it("a retreat directive overrides default push even at full hp", () => {
+    const w = bareWorld();
+    const h = spawnHero(w, "blue", ROSTER[0], 0, { x: 100, z: 100 });
+    h.aiControlled = true;
+    h.directive = { kind: "retreat" };
+    const d0 = dist(h.pos, nexusPos("blue"));
+    for (let i = 0; i < 100; i++) stepWorld(w, 0.1);
+    expect(dist(h.pos, nexusPos("blue"))).toBeLessThan(d0 - 20);
+  });
+
+  it("applyCommand routes a push-bot directive and the hero pushes bot", () => {
+    const w = bareWorld();
+    const h = spawnHero(w, "blue", ROSTER[3], 3, { x: 30, z: 30 });
+    h.aiControlled = true;
+    // Resolve against a createWorld so the hero ids line up, then retarget.
+    applyCommand(w, {
+      heroIds: [h.id], directive: { kind: "push", lane: "bot" },
+      summary: "test",
+    });
+    expect(h.directive).toEqual({ kind: "push", lane: "bot" });
+    const d0 = dist(h.pos, nexusPos("red"));
+    for (let i = 0; i < 300; i++) stepWorld(w, 0.1);
+    expect(dist(h.pos, nexusPos("red"))).toBeLessThan(d0 - 60);
   });
 });

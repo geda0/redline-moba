@@ -10,6 +10,16 @@ export interface Vec2 {
   z: number;
 }
 
+/** A standing order issued to an AI teammate. The resolver (text now, voice
+ * in M4b-2) produces these; the hero AI consumes them. Same structure either
+ * way — the Directive is the contract between command input and the sim. */
+export type Directive =
+  | { kind: "push"; lane: Lane }
+  | { kind: "defend"; lane: Lane }
+  | { kind: "group"; lane: Lane }
+  | { kind: "retreat" }
+  | { kind: "follow"; targetId: string };
+
 export interface Unit {
   id: string;
   team: Team;
@@ -40,6 +50,9 @@ export interface Unit {
   aiControlled?: boolean;
   /** Lane this hero is assigned to push when not fighting. */
   assignedLane?: Lane;
+  /** Standing order from the player (text/voice command). The hero AI reads
+   * this each step. Null/undefined → default push behavior. */
+  directive?: Directive | null;
   /** Driver-written command state. Mouse / AI / voice all write these; the
    * step just executes whatever is set. */
   moveGoal?: Vec2 | null;

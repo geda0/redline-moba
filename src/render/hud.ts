@@ -25,6 +25,14 @@ const STYLE = `
   border: 1px solid #2a3242; color: #aab4c2; }
 #hud .banner { position: absolute; top: 38%; left: 0; right: 0;
   text-align: center; font-size: 44px; font-weight: 700; }
+#hud .cmdbar { position: absolute; bottom: 124px; left: 50%;
+  transform: translateX(-50%); display: flex; flex-direction: column;
+  align-items: center; gap: 4px; }
+#hud .cmdbar input { pointer-events: auto; width: 380px; padding: 6px 10px;
+  background: #0c0f16ee; border: 1px solid #2a3242; color: #dfe6f0;
+  font: 13px ui-monospace, Menlo, monospace; outline: none; }
+#hud .cmdbar input:focus { border-color: #ffe066; }
+#hud .cmdbar .fb { color: #9fd8ff; min-height: 16px; }
 #hud .abilities { position: absolute; bottom: 38px; left: 50%;
   transform: translateX(-50%); display: flex; gap: 6px; }
 #hud .ability { width: 86px; background: #0c0f16dd; border: 1px solid #2a3242;
@@ -42,8 +50,11 @@ export class Hud {
   private readonly rosterEl: HTMLDivElement;
   private readonly bannerEl: HTMLDivElement;
   private readonly abilityEl: HTMLDivElement;
+  private readonly cmdInput: HTMLInputElement;
+  private readonly cmdFeedback: HTMLDivElement;
 
-  constructor(container: HTMLElement) {
+  /** @param onCommand resolves+applies a command string, returns HUD feedback. */
+  constructor(container: HTMLElement, onCommand: (text: string) => string) {
     const style = document.createElement("style");
     style.textContent = STYLE;
     document.head.appendChild(style);
@@ -54,11 +65,36 @@ export class Hud {
     this.rosterEl = el("div", "roster");
     this.bannerEl = el("div", "banner");
     this.abilityEl = el("div", "abilities");
+
+    // Command bar — type an order to the 4 AI teammates. Enter focuses it
+    // from anywhere; Enter again submits and returns control to the game.
+    const cmdWrap = el("div", "cmdbar");
+    this.cmdFeedback = el("div", "fb");
+    this.cmdInput = document.createElement("input");
+    this.cmdInput.placeholder = 'order your team — e.g. "blade push top"';
+    cmdWrap.append(this.cmdFeedback, this.cmdInput);
+    this.cmdInput.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key !== "Enter") return;
+      const text = this.cmdInput.value.trim();
+      if (text) this.cmdFeedback.textContent = onCommand(text);
+      this.cmdInput.value = "";
+      this.cmdInput.blur();
+    });
+    addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && document.activeElement !== this.cmdInput) {
+        e.preventDefault();
+        this.cmdInput.focus();
+      }
+    });
+
     const hint = el("div", "hint");
     hint.textContent =
-      "1-5 switch · RMB move · A+LMB attack-move · Q/W/E/R abilities · S stop";
+      "1-5 switch · RMB move · A+LMB attack-move · Q/W/E/R abilities · " +
+      "S stop · ENTER command team";
     this.root.append(
-      this.statusEl, this.rosterEl, this.abilityEl, hint, this.bannerEl,
+      this.statusEl, this.rosterEl, cmdWrap, this.abilityEl, hint,
+      this.bannerEl,
     );
     container.appendChild(this.root);
   }
