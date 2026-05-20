@@ -17,15 +17,23 @@ export interface Vec2 {
   z: number;
 }
 
-/** A standing order issued to an AI teammate. The resolver (text now, voice
- * in M4b-2) produces these; the hero AI consumes them. Same structure either
- * way — the Directive is the contract between command input and the sim. */
+/** A standing order issued to an AI teammate. The resolver (text or voice)
+ * produces these; the hero AI consumes them. Same structure either way —
+ * the Directive is the contract between command input and the sim.
+ *
+ *   push/defend/group — lane intents
+ *   retreat           — disengage to base
+ *   follow            — escort an ally
+ *   focus             — hunt + kill one named enemy (commandable focus fire)
+ *   objective         — go take a neutral target (the epic monster) */
 export type Directive =
   | { kind: "push"; lane: Lane }
   | { kind: "defend"; lane: Lane }
   | { kind: "group"; lane: Lane }
   | { kind: "retreat" }
-  | { kind: "follow"; targetId: string };
+  | { kind: "follow"; targetId: string }
+  | { kind: "focus"; targetId: string }
+  | { kind: "objective"; targetId: string };
 
 export interface Unit {
   id: string;

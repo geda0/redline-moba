@@ -34,6 +34,15 @@ const STYLE = `
 #hud .cmdbar input:focus { border-color: #ffe066; }
 #hud .cmdbar .fb { color: #9fd8ff; min-height: 16px; }
 #hud .cmdbar .voice { color: #ff9c6b; min-height: 14px; font-weight: 700; }
+#hud .atlasfeed { position: absolute; top: 8px; right: 8px; width: 312px;
+  display: flex; flex-direction: column; gap: 3px; align-items: flex-end; }
+#hud .atlasfeed .line { background: #100c1ad8; border: 1px solid #3a3055;
+  border-left: 3px solid #c8a8ff; padding: 4px 9px; color: #ddccf4;
+  animation: atlasIn 0.18s ease-out; }
+#hud .atlasfeed .line .tag { color: #c8a8ff; font-weight: 700;
+  letter-spacing: 0.5px; margin-right: 6px; }
+@keyframes atlasIn { from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: none; } }
 #hud .abilities { position: absolute; bottom: 38px; left: 50%;
   transform: translateX(-50%); display: flex; gap: 6px; }
 #hud .ability { width: 86px; background: #0c0f16dd; border: 1px solid #2a3242;
@@ -51,6 +60,7 @@ export class Hud {
   private readonly rosterEl: HTMLDivElement;
   private readonly bannerEl: HTMLDivElement;
   private readonly abilityEl: HTMLDivElement;
+  private readonly atlasEl: HTMLDivElement;
   private readonly cmdInput: HTMLInputElement;
   private readonly cmdFeedback: HTMLDivElement;
   private readonly voiceEl: HTMLDivElement;
@@ -67,6 +77,7 @@ export class Hud {
     this.rosterEl = el("div", "roster");
     this.bannerEl = el("div", "banner");
     this.abilityEl = el("div", "abilities");
+    this.atlasEl = el("div", "atlasfeed");
 
     // Command bar — type or speak an order to the 4 AI teammates. Enter
     // focuses it from anywhere; Enter again submits. V speaks a command.
@@ -94,10 +105,10 @@ export class Hud {
     const hint = el("div", "hint");
     hint.textContent =
       "1-5 switch · RMB move · A+LMB attack-move · Q/W/E/R abilities · " +
-      "S stop · ENTER type order · V speak order";
+      "S stop · ENTER order (push/defend/focus/take epic) · V speak";
     this.root.append(
-      this.statusEl, this.rosterEl, cmdWrap, this.abilityEl, hint,
-      this.bannerEl,
+      this.statusEl, this.rosterEl, this.atlasEl, cmdWrap, this.abilityEl,
+      hint, this.bannerEl,
     );
     container.appendChild(this.root);
   }
@@ -105,6 +116,19 @@ export class Hud {
   /** Display a command result (text bar submit or voice transcript). */
   showCommandResult(text: string): void {
     this.cmdFeedback.textContent = text;
+  }
+
+  /** Append an Atlas line to the callout feed (keeps the last 3, ~8s each). */
+  atlasLog(text: string): void {
+    const line = el("div", "line");
+    const tag = el("span", "tag");
+    tag.textContent = "ATLAS";
+    line.append(tag, document.createTextNode(text));
+    this.atlasEl.prepend(line);
+    while (this.atlasEl.childElementCount > 3) {
+      this.atlasEl.lastElementChild?.remove();
+    }
+    setTimeout(() => line.remove(), 8000);
   }
 
   /** Voice listening indicator. */

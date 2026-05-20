@@ -6,6 +6,7 @@ import { Renderer } from "./render/renderer";
 import { applyCommand, resolveCommand } from "./sim/commands";
 import { stepWorld } from "./sim/step";
 import { createWorld } from "./sim/world";
+import { Atlas } from "./voice/atlas";
 import { VoiceInput } from "./voice/speech";
 
 const container = document.getElementById("app");
@@ -15,16 +16,22 @@ const world = createWorld();
 const renderer = new Renderer(container);
 const pilot = new PilotController(renderer.domElement, renderer.camera, world);
 
+const hud = new Hud(container, runCommand);
+
+// Atlas — the AI XO. Confirms orders and calls out the battlefield, speaking
+// in-browser. Lines also mirror to the HUD feed.
+const atlas = new Atlas((line) => hud.atlasLog(line));
+
 // One command path. The text bar and voice both call runCommand — voice is
-// just another front-end on the same resolver, exactly as designed.
+// just another front-end on the same resolver, exactly as designed. Every
+// resolved order is echoed back by Atlas.
 function runCommand(text: string): string {
   const cmd = resolveCommand(text, world, pilot.current()?.id ?? null);
   if (!cmd) return `not understood: "${text}"`;
   applyCommand(world, cmd);
+  atlas.confirm(cmd);
   return cmd.summary;
 }
-
-const hud = new Hud(container, runCommand);
 
 // V — speak a command. Web Speech transcribes in-browser; transcript flows
 // through the same runCommand path.
@@ -36,6 +43,8 @@ if (!voice.supported) {
   hud.showCommandResult("voice unavailable in this browser — use the text bar");
 }
 
+atlas.greet();
+
 let lastT = performance.now();
 
 function loop(now: number): void {
@@ -45,6 +54,7 @@ function loop(now: number): void {
 
   pilot.update();        // piloted hero → manual; the other four → AI
   stepWorld(world, dt);
+  atlas.observe(world);  // callouts from this step's events
 
   const current = pilot.current();
   renderer.frame(world, dt, current?.pos, current?.id);

@@ -495,3 +495,46 @@ describe("squad coordinator (smarter AI)", () => {
     expect(downed).toBeGreaterThan(0);
   });
 });
+
+describe("commanding — focus & objectives", () => {
+  it("'all focus hawk' targets the enemy Hawk", () => {
+    const cmd = resolveCommand("all focus hawk", createWorld(), null);
+    expect(cmd).not.toBeNull();
+    expect(cmd!.directive).toEqual({ kind: "focus", targetId: "red-hawk" });
+  });
+
+  it("resolves a role word — 'blade focus their mage' → enemy Pyre", () => {
+    const cmd = resolveCommand("blade focus their mage", createWorld(), null);
+    expect(cmd!.heroIds).toEqual(["blue-blade"]);
+    expect(cmd!.directive).toEqual({ kind: "focus", targetId: "red-pyre" });
+  });
+
+  it("'team take epic' routes to the epic monster", () => {
+    const w = createWorld();
+    const cmd = resolveCommand("team take epic", w, null);
+    expect(cmd!.directive.kind).toBe("objective");
+    expect((cmd!.directive as { targetId: string }).targetId).toBe("camp-epic");
+  });
+
+  it("a focus directive makes an AI hero hunt down a distant enemy", () => {
+    const w = bareWorld();
+    const h = spawnHero(w, "blue", ROSTER[1], 1, { x: 30, z: 30 });
+    h.aiControlled = true;
+    const prey = spawnHero(w, "red", ROSTER[4], 4, { x: 150, z: 150 });
+    prey.hp = 160;
+    h.directive = { kind: "focus", targetId: prey.id };
+    for (let i = 0; i < 400 && prey.alive; i++) stepWorld(w, 0.1);
+    expect(prey.alive).toBe(false);
+  });
+
+  it("an objective directive sends an AI hero to damage the epic", () => {
+    const w = bareWorld();
+    const epic = spawnCamp(w, { id: "camp-epic", tier: "epic", pos: { x: 80, z: 80 } });
+    const h = spawnHero(w, "blue", ROSTER[3], 3, { x: 82, z: 80 });
+    h.aiControlled = true;
+    h.directive = { kind: "objective", targetId: epic.id };
+    const hp0 = epic.hp;
+    for (let i = 0; i < 30; i++) stepWorld(w, 0.1);
+    expect(epic.hp).toBeLessThan(hp0);
+  });
+});

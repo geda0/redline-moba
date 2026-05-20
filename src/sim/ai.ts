@@ -65,6 +65,18 @@ export function stepHeroAI(world: World, hero: Unit, plan: SquadPlan): void {
         return;
       }
       // target gone — fall through to default push
+    } else if (d.kind === "focus" || d.kind === "objective") {
+      // Hunt the ordered target across the map; abilities once in reach.
+      const tgt = findUnit(world, d.targetId);
+      if (tgt && tgt.alive && !tgt.isDead) {
+        hero.attackTargetId = tgt.id;
+        hero.moveGoal = null;
+        if (dist(hero.pos, tgt.pos) <= hero.attackRange + 12) {
+          useAbilities(world, hero, tgt);
+        }
+        return;
+      }
+      // target dead/gone — fall through to default push
     } else if (d.kind === "defend") {
       hero.moveGoal = defendPoint(hero, d.lane);
       return;
@@ -84,11 +96,23 @@ export function stepHeroAI(world: World, hero: Unit, plan: SquadPlan): void {
   hero.moveGoal = laneAdvance(hero, hero.assignedLane ?? "mid");
 }
 
-/** Choose this step's attack target: the team focus when it is within
- * collapse range, otherwise whatever enemy wandered into threat range. */
+/** Choose this step's attack target. Precedence: an explicit `focus` order
+ * from the player → the squad's auto-focus → whatever wandered into range.
+ * The first two only apply within collapse range; the far hunt is handled
+ * by the directive step. */
 function pickTarget(
   world: World, hero: Unit, plan: SquadPlan, foeNear: Unit | null,
 ): Unit | null {
+  const d = hero.directive;
+  if (d && d.kind === "focus") {
+    const ordered = findUnit(world, d.targetId);
+    if (
+      ordered && ordered.alive && !ordered.isDead &&
+      dist(hero.pos, ordered.pos) <= COLLAPSE_RADIUS
+    ) {
+      return ordered;
+    }
+  }
   if (plan.focusId) {
     const focus = findUnit(world, plan.focusId);
     if (
