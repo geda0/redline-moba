@@ -21,6 +21,7 @@ function loop(now: number): void {
   const dt = Math.min(0.05, (now - lastT) / 1000);
   lastT = now;
 
+  pilot.update();        // piloted hero → manual; the other four → AI
   stepWorld(world, dt);
 
   const current = pilot.current();

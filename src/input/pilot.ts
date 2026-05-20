@@ -45,6 +45,14 @@ export class PilotController {
     return this.heroes[this.pilotedIndex] ?? null;
   }
 
+  /** Sync the aiControlled flags: the piloted hero is manual, the other four
+   * blue heroes run the AI. Call once per frame before stepWorld. */
+  update(): void {
+    for (let i = 0; i < this.heroes.length; i++) {
+      this.heroes[i].aiControlled = i !== this.pilotedIndex;
+    }
+  }
+
   pilotedRosterIndex(): number {
     return this.pilotedIndex;
   }

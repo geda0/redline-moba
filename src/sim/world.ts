@@ -115,10 +115,17 @@ export function createWorld(): World {
     spawnTower(world, "red", { x: rBase.x + o.x, z: rBase.z + o.z },
       `tower-red-nexus-${i + 1}`));
 
-  // Heroes — 5 per team, fanned in front of each nexus.
+  // Heroes — 5 per team, fanned in front of each nexus. All AI-controlled at
+  // spawn; the pilot controller flips one blue hero to manual each frame.
+  // Lane assignment: top / mid / bot / mid / bot.
+  const laneAssign: Lane[] = ["top", "mid", "bot", "mid", "bot"];
   for (let i = 0; i < ROSTER.length; i++) {
-    spawnHero(world, "blue", ROSTER[i], i, heroSpawnPos("blue", i));
-    spawnHero(world, "red", ROSTER[i], i, heroSpawnPos("red", i));
+    const blue = spawnHero(world, "blue", ROSTER[i], i, heroSpawnPos("blue", i));
+    blue.aiControlled = true;
+    blue.assignedLane = laneAssign[i];
+    const red = spawnHero(world, "red", ROSTER[i], i, heroSpawnPos("red", i));
+    red.aiControlled = true;
+    red.assignedLane = laneAssign[i];
   }
 
   return world;

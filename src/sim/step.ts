@@ -4,6 +4,7 @@
 import {
   LANE_PATHS, LANES, MINIONS_PER_LANE, TUNING, WAVE_INTERVAL, enemyOf, nexusPos,
 } from "./config";
+import { stepHeroAI } from "./ai";
 import { fireAt, inRange, nearestEnemy } from "./combat";
 import { dist, moveToward } from "./lanes";
 import { spawnMinion } from "./world";
@@ -90,8 +91,13 @@ function stepTower(world: World, t: Unit, dt: number): void {
   if (target) fireAt(world, t, target, dt);
 }
 
-// ── hero (M2 piloting / M4 AI write moveGoal + attackTargetId) ───────────────
+// ── hero (mouse pilot / AI / voice all write moveGoal + attackTargetId) ──────
 function stepHero(world: World, h: Unit, dt: number): void {
+  // AI heroes get their command state written by the hero AI each step,
+  // before they execute it. The piloted hero (aiControlled=false) keeps
+  // whatever the mouse driver last wrote.
+  if (h.aiControlled && !h.isDead) stepHeroAI(world, h);
+
   if (h.isDead) {
     if (world.time >= (h.respawnAt ?? 0)) {
       h.isDead = false;

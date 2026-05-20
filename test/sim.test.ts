@@ -236,3 +236,46 @@ describe("abilities (M3)", () => {
     expect(castAbility(w, h, "q", { x: 12, z: 10 })).toBe(false);
   });
 });
+
+describe("hero AI (M4a)", () => {
+  it("an AI hero pushes its assigned lane toward the enemy nexus", () => {
+    const w = bareWorld();
+    const h = spawnHero(w, "blue", ROSTER[0], 0, { x: 30, z: 30 });
+    h.aiControlled = true;
+    h.assignedLane = "mid";
+    const d0 = dist(h.pos, nexusPos("red"));
+    for (let i = 0; i < 300; i++) stepWorld(w, 0.1); // 30s
+    expect(dist(h.pos, nexusPos("red"))).toBeLessThan(d0 - 60);
+  });
+
+  it("an AI hero engages an enemy that comes close", () => {
+    const w = bareWorld();
+    const h = spawnHero(w, "blue", ROSTER[1], 1, { x: 100, z: 100 });
+    h.aiControlled = true;
+    const foe = spawnMinion(w, "red", "mid");
+    foe.pos = { x: 108, z: 100 };
+    const hp0 = foe.hp;
+    stepWorld(w, 0.5);
+    expect(foe.hp).toBeLessThan(hp0);
+  });
+
+  it("an AI hero retreats home when low", () => {
+    const w = bareWorld();
+    const h = spawnHero(w, "blue", ROSTER[2], 2, { x: 120, z: 120 });
+    h.aiControlled = true;
+    h.hp = h.maxHp * 0.2;
+    const d0 = dist(h.pos, nexusPos("blue"));
+    for (let i = 0; i < 120; i++) stepWorld(w, 0.1);
+    expect(dist(h.pos, nexusPos("blue"))).toBeLessThan(d0 - 20);
+  });
+
+  it("a full 5v5 AI match runs and draws first blood on a structure", () => {
+    const w = createWorld();
+    for (let i = 0; i < 900 && !w.matchOver; i++) stepWorld(w, 0.1); // up to 90s
+    expect(w.time).toBeGreaterThan(60);
+    const towerHurt = w.units.some(
+      (u) => u.kind === "tower" && u.hp < u.maxHp,
+    );
+    expect(towerHurt).toBe(true);
+  });
+});

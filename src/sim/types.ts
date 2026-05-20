@@ -34,6 +34,12 @@ export interface Unit {
   // ── hero (M2) ─────────────────────────────────────────────────────────
   heroId?: string;
   rosterIndex?: number;
+  /** When true, the hero AI writes this hero's command state each step.
+   * The piloted hero has this false — the mouse driver owns it instead.
+   * Voice (M4b) commands AI heroes by writing the same state. */
+  aiControlled?: boolean;
+  /** Lane this hero is assigned to push when not fighting. */
+  assignedLane?: Lane;
   /** Driver-written command state. Mouse / AI / voice all write these; the
    * step just executes whatever is set. */
   moveGoal?: Vec2 | null;
