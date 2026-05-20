@@ -1,0 +1,72 @@
+{
+  "persona": {
+    "name": "Atlas",
+    "voice": "Charon",
+    "fallback_voices": ["Iapetus", "Orus"],
+    "sample_rate_hz": 24000,
+    "max_chars_per_line": 180
+  },
+  "rules": {
+    "address_player_as": "Commander",
+    "never_say": ["player", "user", "AI", "the game", "press"]
+  },
+  "static": {
+    "greeting": [
+      {
+        "id": "greeting.cold_open",
+        "text": "Commander. Atlas, on station. Five heroes ready. You pilot one — I'll relay your orders to the rest. Destroy their Nexus."
+      },
+      {
+        "id": "greeting.returning",
+        "text": "Commander. Atlas. Same five. Your call."
+      }
+    ],
+    "ack": [
+      { "id": "ack.copy", "text": "Copy." },
+      { "id": "ack.confirmed", "text": "Confirmed." },
+      { "id": "ack.on_it", "text": "On it." }
+    ],
+    "debrief": [
+      {
+        "id": "debrief.win",
+        "text": "Nexus down, Commander. Their core is ours. Clean command."
+      },
+      {
+        "id": "debrief.loss",
+        "text": "Our Nexus fell, Commander. Review the calls. Next match when you're ready."
+      }
+    ]
+  },
+  "templates": {
+    "sitrep.enemy_grouping": {
+      "template": "Red is grouping {lane}. {decision}",
+      "examples": [
+        {
+          "slots": { "lane": "mid", "decision": "Collapse, or take their tower?" },
+          "rendered": "Red is grouping mid. Collapse, or take their tower?"
+        }
+      ]
+    },
+    "sitrep.tower_lost": {
+      "template": "{lane} tower down.",
+      "examples": [
+        { "slots": { "lane": "Bot" }, "rendered": "Bot tower down." }
+      ]
+    },
+    "sitrep.hero_down": {
+      "template": "{hero} is down.",
+      "examples": [
+        { "slots": { "hero": "Blade" }, "rendered": "Blade is down." }
+      ]
+    },
+    "confirm.order": {
+      "template": "Copy. {hero} {action}.",
+      "examples": [
+        {
+          "slots": { "hero": "Pyre", "action": "holding mid" },
+          "rendered": "Copy. Pyre holding mid."
+        }
+      ]
+    }
+  }
+}
