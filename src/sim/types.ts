@@ -94,6 +94,7 @@ export interface Unit {
 export type SimEventKind =
   | "fire"
   | "death"
+  | "damage"
   | "wave_spawned"
   | "nexus_destroyed"
   | "ability";

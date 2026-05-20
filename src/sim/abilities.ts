@@ -113,6 +113,10 @@ export function castAbility(
         if (!u.alive || u.isDead || u.team === hero.team) continue;
         if (dist(u.pos, point) <= ability.radius) {
           dealDamage(world, u, dmg, hero);
+          world.events.push({
+            kind: "damage", unitId: u.id,
+            to: { ...u.pos }, note: `${Math.round(dmg)}`,
+          });
         }
       }
       break;
@@ -125,7 +129,14 @@ export function castAbility(
         if (!u.alive || u.isDead || u.team !== hero.team) continue;
         if (u.kind !== "hero" && u.kind !== "minion") continue;
         if (dist(u.pos, point) <= ability.radius) {
-          u.hp = Math.min(u.maxHp, u.hp + ability.amount);
+          const healed = Math.min(u.maxHp, u.hp + ability.amount) - u.hp;
+          u.hp += healed;
+          if (healed > 0) {
+            world.events.push({
+              kind: "damage", unitId: u.id,
+              to: { ...u.pos }, note: `+${Math.round(healed)}`,
+            });
+          }
         }
       }
       break;

@@ -2,6 +2,7 @@
 
 import { PilotController } from "./input/pilot";
 import { Hud } from "./render/hud";
+import { Minimap } from "./render/minimap";
 import { Renderer } from "./render/renderer";
 import { applyCommand, resolveCommand } from "./sim/commands";
 import { stepWorld } from "./sim/step";
@@ -14,6 +15,7 @@ if (!container) throw new Error("missing #app container");
 
 const world = createWorld();
 const renderer = new Renderer(container);
+const minimap = new Minimap(container);
 const pilot = new PilotController(renderer.domElement, renderer.camera, world);
 
 const hud = new Hud(container, runCommand);
@@ -58,6 +60,7 @@ function loop(now: number): void {
 
   const current = pilot.current();
   renderer.frame(world, dt, current?.pos, current?.id);
+  minimap.update(world, current?.id);
   hud.update(world, pilot.pilotedRosterIndex());
 
   requestAnimationFrame(loop);
