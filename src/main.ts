@@ -6,6 +6,7 @@ import { Renderer } from "./render/renderer";
 import { applyCommand, resolveCommand } from "./sim/commands";
 import { stepWorld } from "./sim/step";
 import { createWorld } from "./sim/world";
+import { VoiceInput } from "./voice/speech";
 
 const container = document.getElementById("app");
 if (!container) throw new Error("missing #app container");
@@ -14,14 +15,26 @@ const world = createWorld();
 const renderer = new Renderer(container);
 const pilot = new PilotController(renderer.domElement, renderer.camera, world);
 
-// Text command bar → resolver → directives on the 4 AI teammates. M4b-2
-// swaps Gemini Live voice in front of this exact same resolveCommand path.
-const hud = new Hud(container, (text: string): string => {
+// One command path. The text bar and voice both call runCommand — voice is
+// just another front-end on the same resolver, exactly as designed.
+function runCommand(text: string): string {
   const cmd = resolveCommand(text, world, pilot.current()?.id ?? null);
   if (!cmd) return `not understood: "${text}"`;
   applyCommand(world, cmd);
   return cmd.summary;
-});
+}
+
+const hud = new Hud(container, runCommand);
+
+// V — speak a command. Web Speech transcribes in-browser; transcript flows
+// through the same runCommand path.
+const voice = new VoiceInput(
+  (text) => hud.showCommandResult(`🎙 "${text}" → ${runCommand(text)}`),
+  (listening) => hud.setVoiceState(listening),
+);
+if (!voice.supported) {
+  hud.showCommandResult("voice unavailable in this browser — use the text bar");
+}
 
 let lastT = performance.now();
 

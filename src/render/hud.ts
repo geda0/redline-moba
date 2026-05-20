@@ -33,6 +33,7 @@ const STYLE = `
   font: 13px ui-monospace, Menlo, monospace; outline: none; }
 #hud .cmdbar input:focus { border-color: #ffe066; }
 #hud .cmdbar .fb { color: #9fd8ff; min-height: 16px; }
+#hud .cmdbar .voice { color: #ff9c6b; min-height: 14px; font-weight: 700; }
 #hud .abilities { position: absolute; bottom: 38px; left: 50%;
   transform: translateX(-50%); display: flex; gap: 6px; }
 #hud .ability { width: 86px; background: #0c0f16dd; border: 1px solid #2a3242;
@@ -52,6 +53,7 @@ export class Hud {
   private readonly abilityEl: HTMLDivElement;
   private readonly cmdInput: HTMLInputElement;
   private readonly cmdFeedback: HTMLDivElement;
+  private readonly voiceEl: HTMLDivElement;
 
   /** @param onCommand resolves+applies a command string, returns HUD feedback. */
   constructor(container: HTMLElement, onCommand: (text: string) => string) {
@@ -66,13 +68,14 @@ export class Hud {
     this.bannerEl = el("div", "banner");
     this.abilityEl = el("div", "abilities");
 
-    // Command bar — type an order to the 4 AI teammates. Enter focuses it
-    // from anywhere; Enter again submits and returns control to the game.
+    // Command bar — type or speak an order to the 4 AI teammates. Enter
+    // focuses it from anywhere; Enter again submits. V speaks a command.
     const cmdWrap = el("div", "cmdbar");
+    this.voiceEl = el("div", "voice");
     this.cmdFeedback = el("div", "fb");
     this.cmdInput = document.createElement("input");
     this.cmdInput.placeholder = 'order your team — e.g. "blade push top"';
-    cmdWrap.append(this.cmdFeedback, this.cmdInput);
+    cmdWrap.append(this.voiceEl, this.cmdFeedback, this.cmdInput);
     this.cmdInput.addEventListener("keydown", (e) => {
       e.stopPropagation();
       if (e.key !== "Enter") return;
@@ -91,12 +94,22 @@ export class Hud {
     const hint = el("div", "hint");
     hint.textContent =
       "1-5 switch · RMB move · A+LMB attack-move · Q/W/E/R abilities · " +
-      "S stop · ENTER command team";
+      "S stop · ENTER type order · V speak order";
     this.root.append(
       this.statusEl, this.rosterEl, cmdWrap, this.abilityEl, hint,
       this.bannerEl,
     );
     container.appendChild(this.root);
+  }
+
+  /** Display a command result (text bar submit or voice transcript). */
+  showCommandResult(text: string): void {
+    this.cmdFeedback.textContent = text;
+  }
+
+  /** Voice listening indicator. */
+  setVoiceState(listening: boolean): void {
+    this.voiceEl.textContent = listening ? "🎙 listening…" : "";
   }
 
   update(world: World, pilotedIndex: number): void {
