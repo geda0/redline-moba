@@ -8,7 +8,9 @@ import { dist, lanePointAt } from "../src/sim/lanes";
 import { ROSTER } from "../src/sim/roster";
 import { stepWorld } from "../src/sim/step";
 import type { World } from "../src/sim/types";
-import { createWorld, findUnit, spawnHero, spawnMinion } from "../src/sim/world";
+import {
+  blueHeroes, createWorld, findUnit, spawnHero, spawnMinion,
+} from "../src/sim/world";
 
 function bareWorld(): World {
   return {
@@ -136,5 +138,40 @@ describe("heroes", () => {
     expect(inRange(a, b)).toBe(true);
     b.pos = { x: 20, z: 0 };
     expect(inRange(a, b)).toBe(false);
+  });
+});
+
+describe("hero roster (M2)", () => {
+  it("createWorld spawns 5 heroes per team", () => {
+    const w = createWorld();
+    const blue = w.units.filter((u) => u.kind === "hero" && u.team === "blue");
+    const red = w.units.filter((u) => u.kind === "hero" && u.team === "red");
+    expect(blue).toHaveLength(5);
+    expect(red).toHaveLength(5);
+  });
+
+  it("blueHeroes returns the 5 in roster order", () => {
+    const heroes = blueHeroes(createWorld());
+    expect(heroes).toHaveLength(5);
+    expect(heroes.map((h) => h.rosterIndex)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it("a hero executes a moveGoal a driver writes", () => {
+    const w = bareWorld();
+    const h = spawnHero(w, "blue", ROSTER[0], 0, { x: 50, z: 50 });
+    h.moveGoal = { x: 92, z: 50 }; // mouse/AI/voice would write this
+    const d0 = dist(h.pos, h.moveGoal);
+    for (let i = 0; i < 60; i++) stepWorld(w, 0.1); // 6s
+    expect(dist(h.pos, { x: 92, z: 50 })).toBeLessThan(d0 - 20);
+  });
+
+  it("a hero chases and kills an explicit attack target", () => {
+    const w = bareWorld();
+    const h = spawnHero(w, "blue", ROSTER[1], 1, { x: 50, z: 50 });
+    const foe = spawnMinion(w, "red", "mid");
+    foe.pos = { x: 70, z: 50 };
+    h.attackTargetId = foe.id;
+    for (let i = 0; i < 200 && foe.alive; i++) stepWorld(w, 0.1);
+    expect(foe.alive).toBe(false);
   });
 });

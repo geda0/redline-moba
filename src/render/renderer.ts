@@ -3,7 +3,7 @@
 
 import * as THREE from "three";
 import { LANE_PATHS, LANES, MAP_SIZE, nexusPos } from "../sim/config";
-import type { Unit, World } from "../sim/types";
+import type { Unit, Vec2, World } from "../sim/types";
 
 const TEAM_HEX: Record<string, number> = { blue: 0x4a86ff, red: 0xff5b5b };
 
@@ -19,6 +19,9 @@ export class Renderer {
   private readonly meshes = new Map<string, THREE.Object3D>();
   private readonly tracers: Tracer[] = [];
   private clock = 0;
+  /** MOBA follow-camera offset from the piloted hero. */
+  private readonly camOffset = new THREE.Vector3(0, 96, -64);
+  private pilotRing: THREE.Mesh | null = null;
 
   constructor(container: HTMLElement) {
     this.scene.background = new THREE.Color(0x0a0d12);
@@ -41,6 +44,11 @@ export class Renderer {
 
     this.buildMap();
     addEventListener("resize", () => this.resize());
+  }
+
+  /** The WebGL canvas — input listeners attach here. */
+  get domElement(): HTMLCanvasElement {
+    return this.renderer.domElement;
   }
 
   private buildMap(): void {
@@ -91,13 +99,50 @@ export class Renderer {
     }
   }
 
-  /** Advance render state and draw. Call once per frame after stepWorld. */
-  frame(world: World, dt: number): void {
+  /** Advance render state and draw. Call once per frame after stepWorld.
+   * `focus` (the piloted hero's position) drives the follow-camera;
+   * `pilotedId` gets the under-foot ring. */
+  frame(world: World, dt: number, focus?: Vec2, pilotedId?: string): void {
     this.clock += dt;
+    if (focus) this.followCamera(focus, dt);
     this.syncUnits(world);
+    this.updatePilotRing(world, pilotedId);
     this.consumeEvents(world);
     this.updateTracers();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  private followCamera(focus: Vec2, dt: number): void {
+    const want = new THREE.Vector3(
+      focus.x + this.camOffset.x,
+      this.camOffset.y,
+      focus.z + this.camOffset.z,
+    );
+    const a = 1 - Math.exp(-8 * dt);
+    this.camera.position.lerp(want, a);
+    this.camera.lookAt(focus.x, 0, focus.z);
+  }
+
+  private updatePilotRing(world: World, pilotedId?: string): void {
+    if (!this.pilotRing) {
+      this.pilotRing = new THREE.Mesh(
+        new THREE.RingGeometry(4.5, 6, 28),
+        new THREE.MeshBasicMaterial({
+          color: 0xffe066, side: THREE.DoubleSide, transparent: true, opacity: 0.9,
+        }),
+      );
+      this.pilotRing.rotation.x = -Math.PI / 2;
+      this.scene.add(this.pilotRing);
+    }
+    const hero = pilotedId
+      ? world.units.find((u) => u.id === pilotedId)
+      : undefined;
+    if (hero && !hero.isDead) {
+      this.pilotRing.visible = true;
+      this.pilotRing.position.set(hero.pos.x, 0.3, hero.pos.z);
+    } else {
+      this.pilotRing.visible = false;
+    }
   }
 
   private syncUnits(world: World): void {

@@ -2,11 +2,11 @@
 // provides spawn helpers for minions and heroes.
 
 import {
-  BLUE_NEXUS_TOWER_OFFSETS, BLUE_TOWER_T, FIRST_WAVE_AT, LANES,
+  BLUE_NEXUS_TOWER_OFFSETS, BLUE_TOWER_T, FIRST_WAVE_AT, LANES, MAP_SIZE,
   RED_NEXUS_TOWER_OFFSETS, RED_TOWER_T, TUNING, nexusPos,
 } from "./config";
 import { lanePointAt } from "./lanes";
-import type { HeroDef } from "./roster";
+import { ROSTER, type HeroDef } from "./roster";
 import type { Lane, Team, Unit, Vec2, World } from "./types";
 
 let _nextId = 1;
@@ -115,7 +115,38 @@ export function createWorld(): World {
     spawnTower(world, "red", { x: rBase.x + o.x, z: rBase.z + o.z },
       `tower-red-nexus-${i + 1}`));
 
+  // Heroes — 5 per team, fanned in front of each nexus.
+  for (let i = 0; i < ROSTER.length; i++) {
+    spawnHero(world, "blue", ROSTER[i], i, heroSpawnPos("blue", i));
+    spawnHero(world, "red", ROSTER[i], i, heroSpawnPos("red", i));
+  }
+
   return world;
+}
+
+/** Fan the 5 heroes along a short arc facing the map center. */
+export function heroSpawnPos(team: Team, rosterIndex: number): Vec2 {
+  const base = nexusPos(team);
+  const center: Vec2 = { x: MAP_SIZE / 2, z: MAP_SIZE / 2 };
+  let tx = center.x - base.x;
+  let tz = center.z - base.z;
+  const tl = Math.hypot(tx, tz) || 1;
+  tx /= tl; tz /= tl;
+  const px = -tz;
+  const pz = tx;
+  const lateral = (rosterIndex - 2) * 7;
+  const forward = 20;
+  return {
+    x: base.x + tx * forward + px * lateral,
+    z: base.z + tz * forward + pz * lateral,
+  };
+}
+
+/** Blue heroes, ordered by roster index — the switch-control 1-5 order. */
+export function blueHeroes(world: World): Unit[] {
+  return world.units
+    .filter((u) => u.kind === "hero" && u.team === "blue")
+    .sort((a, b) => (a.rosterIndex ?? 0) - (b.rosterIndex ?? 0));
 }
 
 export function findUnit(world: World, id: string): Unit | undefined {
