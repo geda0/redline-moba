@@ -10,6 +10,7 @@ import {
 } from "../src/sim/combat";
 import { dist, lanePointAt } from "../src/sim/lanes";
 import { ROSTER } from "../src/sim/roster";
+import { planSquad } from "../src/sim/squad";
 import { stepWorld } from "../src/sim/step";
 import type { World } from "../src/sim/types";
 import {
@@ -423,5 +424,74 @@ describe("jungle + objectives (M5)", () => {
     fireAt(w, buffed, tgtA, 1.0);
     fireAt(w, plain, tgtB, 1.0);
     expect(tgtA.maxHp - tgtA.hp).toBeGreaterThan(tgtB.maxHp - tgtB.hp);
+  });
+});
+
+describe("squad coordinator (smarter AI)", () => {
+  it("focuses the lowest-hp contested enemy hero", () => {
+    const w = bareWorld();
+    spawnHero(w, "blue", ROSTER[0], 0, { x: 50, z: 50 });
+    spawnHero(w, "blue", ROSTER[1], 1, { x: 54, z: 50 });
+    const healthy = spawnHero(w, "red", ROSTER[0], 0, { x: 58, z: 50 });
+    const wounded = spawnHero(w, "red", ROSTER[1], 1, { x: 62, z: 50 });
+    wounded.hp = 60;
+    expect(planSquad(w, "blue").focusId).toBe(wounded.id);
+    expect(healthy.id).not.toBe(wounded.id);
+  });
+
+  it("names no focus when no enemy hero is near the line", () => {
+    const w = bareWorld();
+    spawnHero(w, "blue", ROSTER[0], 0, { x: 50, z: 50 });
+    spawnHero(w, "red", ROSTER[0], 0, { x: 900, z: 900 });
+    expect(planSquad(w, "blue").focusId).toBeNull();
+    expect(planSquad(w, "blue").fallBack).toBe(false);
+  });
+
+  it("calls a fall-back when the squad is outgunned", () => {
+    const w = bareWorld();
+    const lone = spawnHero(w, "blue", ROSTER[3], 3, { x: 50, z: 50 });
+    lone.hp = lone.maxHp * 0.4;
+    spawnHero(w, "red", ROSTER[0], 0, { x: 56, z: 50 });
+    spawnHero(w, "red", ROSTER[0], 1, { x: 60, z: 50 });
+    spawnHero(w, "red", ROSTER[0], 2, { x: 64, z: 50 });
+    expect(planSquad(w, "blue").fallBack).toBe(true);
+  });
+
+  it("does not fall back on an even fight", () => {
+    const w = bareWorld();
+    spawnHero(w, "blue", ROSTER[0], 0, { x: 50, z: 50 });
+    spawnHero(w, "blue", ROSTER[0], 1, { x: 54, z: 50 });
+    spawnHero(w, "red", ROSTER[0], 0, { x: 58, z: 50 });
+    spawnHero(w, "red", ROSTER[0], 1, { x: 62, z: 50 });
+    expect(planSquad(w, "blue").fallBack).toBe(false);
+  });
+
+  it("an AI support proactively heals a badly wounded ally", () => {
+    const w = bareWorld();
+    const warden = spawnHero(w, "blue", ROSTER[4], 4, { x: 50, z: 50 });
+    warden.aiControlled = true;
+    const ally = spawnHero(w, "blue", ROSTER[0], 0, { x: 54, z: 50 });
+    ally.hp = ally.maxHp * 0.3;
+    const hp0 = ally.hp;
+    stepWorld(w, 0.1);
+    expect(ally.hp).toBeGreaterThan(hp0);
+  });
+
+  it("a focus-firing squad collapses a target faster than it spreads damage", () => {
+    // Three AI blues vs three reds, all in one clump: focus fire should
+    // drop at least one red within a short window.
+    const w = bareWorld();
+    for (let i = 0; i < 3; i++) {
+      const b = spawnHero(w, "blue", ROSTER[1], i, { x: 50 + i, z: 50 });
+      b.aiControlled = true;
+      const r = spawnHero(w, "red", ROSTER[1], i, { x: 56 + i, z: 50 });
+      r.aiControlled = true;
+    }
+    let downed = 0;
+    for (let i = 0; i < 120 && downed === 0; i++) {
+      stepWorld(w, 0.1);
+      downed = w.units.filter((u) => u.kind === "hero" && u.isDead).length;
+    }
+    expect(downed).toBeGreaterThan(0);
   });
 });

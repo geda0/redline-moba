@@ -8,7 +8,9 @@ import {
 import { stepHeroAI } from "./ai";
 import { fireAt, inRange, nearestEnemy } from "./combat";
 import { dist, moveToward } from "./lanes";
+import { planSquad } from "./squad";
 import { spawnMinion } from "./world";
+import type { SquadPlan } from "./squad";
 import type { Unit, World } from "./types";
 
 const HERO_RESPAWN_SECONDS = 8;
@@ -32,13 +34,23 @@ export function stepWorld(world: World, dt: number): void {
     world.events.push({ kind: "wave_spawned", unitId: `wave-${world.waveCount}` });
   }
 
+  // ── squad plans ─────────────────────────────────────────────────────────
+  // Computed once per step from the pre-move snapshot, so every hero on a
+  // team reads a single consistent focus + fall-back signal.
+  const plans: Record<"blue" | "red", SquadPlan> = {
+    blue: planSquad(world, "blue"),
+    red: planSquad(world, "red"),
+  };
+
   // ── per-unit behavior ───────────────────────────────────────────────────
   for (const u of world.units) {
     if (!u.alive && u.kind !== "hero") continue;
     switch (u.kind) {
       case "minion": stepMinion(world, u, dt); break;
       case "tower": stepTower(world, u, dt); break;
-      case "hero": stepHero(world, u, dt); break;
+      case "hero":
+        stepHero(world, u, dt, u.team === "red" ? plans.red : plans.blue);
+        break;
       case "camp": stepCamp(world, u, dt); break;
       case "nexus": break; // inert objective
     }
@@ -104,11 +116,11 @@ function stepCamp(world: World, c: Unit, dt: number): void {
 }
 
 // ── hero (mouse pilot / AI / voice all write moveGoal + attackTargetId) ──────
-function stepHero(world: World, h: Unit, dt: number): void {
+function stepHero(world: World, h: Unit, dt: number, plan: SquadPlan): void {
   // AI heroes get their command state written by the hero AI each step,
   // before they execute it. The piloted hero (aiControlled=false) keeps
   // whatever the mouse driver last wrote.
-  if (h.aiControlled && !h.isDead) stepHeroAI(world, h);
+  if (h.aiControlled && !h.isDead) stepHeroAI(world, h, plan);
 
   if (h.isDead) {
     if (world.time >= (h.respawnAt ?? 0)) {
