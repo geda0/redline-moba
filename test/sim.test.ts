@@ -2,8 +2,9 @@
 // sim/render split is that this file fully exercises the game logic.
 
 import { describe, expect, it } from "vitest";
+import { castAbility, cooldownRemaining } from "../src/sim/abilities";
 import { FIRST_WAVE_AT, MINIONS_PER_LANE, nexusPos } from "../src/sim/config";
-import { fireAt, inRange, nearestEnemy } from "../src/sim/combat";
+import { dealDamage, fireAt, inRange, nearestEnemy } from "../src/sim/combat";
 import { dist, lanePointAt } from "../src/sim/lanes";
 import { ROSTER } from "../src/sim/roster";
 import { stepWorld } from "../src/sim/step";
@@ -173,5 +174,65 @@ describe("hero roster (M2)", () => {
     h.attackTargetId = foe.id;
     for (let i = 0; i < 200 && foe.alive; i++) stepWorld(w, 0.1);
     expect(foe.alive).toBe(false);
+  });
+});
+
+describe("abilities (M3)", () => {
+  it("a nuke damages enemies inside its radius", () => {
+    const w = bareWorld();
+    const pyre = spawnHero(w, "blue", ROSTER[2], 2, { x: 50, z: 50 }); // Pyre
+    const foe = spawnHero(w, "red", ROSTER[0], 0, { x: 60, z: 50 });
+    const hp0 = foe.hp;
+    const cast = castAbility(w, pyre, "q", { x: 60, z: 50 });
+    expect(cast).toBe(true);
+    expect(foe.hp).toBeLessThan(hp0); // Ember hit
+  });
+
+  it("an ability on cooldown will not re-cast", () => {
+    const w = bareWorld();
+    const pyre = spawnHero(w, "blue", ROSTER[2], 2, { x: 50, z: 50 });
+    spawnHero(w, "red", ROSTER[0], 0, { x: 60, z: 50 });
+    expect(castAbility(w, pyre, "q", { x: 60, z: 50 })).toBe(true);
+    expect(castAbility(w, pyre, "q", { x: 60, z: 50 })).toBe(false); // still cooling
+    expect(cooldownRemaining(w, pyre, "q")).toBeGreaterThan(0);
+    stepWorld(w, 5); // Ember cd is 4s
+    expect(castAbility(w, pyre, "q", { x: 60, z: 50 })).toBe(true);
+  });
+
+  it("Warden's heal restores ally hp", () => {
+    const w = bareWorld();
+    const warden = spawnHero(w, "blue", ROSTER[4], 4, { x: 50, z: 50 });
+    const ally = spawnHero(w, "blue", ROSTER[0], 0, { x: 54, z: 50 });
+    ally.hp = 100;
+    castAbility(w, warden, "q", { x: 54, z: 50 });
+    expect(ally.hp).toBeGreaterThan(100);
+  });
+
+  it("a shield absorbs damage before hp", () => {
+    const w = bareWorld();
+    const warden = spawnHero(w, "blue", ROSTER[4], 4, { x: 50, z: 50 });
+    castAbility(w, warden, "e", { x: 50, z: 50 }); // Aegis — 240 shield on self
+    expect(warden.shieldHp).toBe(240);
+    const hp0 = warden.hp;
+    dealDamage(w, warden, 100);
+    expect(warden.shieldHp).toBe(140);
+    expect(warden.hp).toBe(hp0); // hp untouched while shield holds
+    dealDamage(w, warden, 200);
+    expect(warden.shieldHp).toBe(0);
+    expect(warden.hp).toBe(hp0 - 60); // overflow hit hp
+  });
+
+  it("a dash relocates the hero", () => {
+    const w = bareWorld();
+    const vanguard = spawnHero(w, "blue", ROSTER[0], 0, { x: 10, z: 10 });
+    castAbility(w, vanguard, "e", { x: 40, z: 10 }); // Charge — range 35
+    expect(vanguard.pos.x).toBeCloseTo(40); // within range, lands on point
+  });
+
+  it("a dead hero cannot cast", () => {
+    const w = bareWorld();
+    const h = spawnHero(w, "blue", ROSTER[0], 0, { x: 10, z: 10 });
+    h.isDead = true;
+    expect(castAbility(w, h, "q", { x: 12, z: 10 })).toBe(false);
   });
 });

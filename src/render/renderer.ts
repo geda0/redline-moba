@@ -12,12 +12,24 @@ interface Tracer {
   deadAt: number;
 }
 
+interface Pulse {
+  ring: THREE.Mesh;
+  bornAt: number;
+  dieAt: number;
+  endRadius: number;
+}
+
+const ABILITY_HEX: Record<string, number> = {
+  nuke: 0xff7a33, heal: 0x5ad17a, shield: 0x66ccff, dash: 0xdddddd,
+};
+
 export class Renderer {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
   private readonly renderer: THREE.WebGLRenderer;
   private readonly meshes = new Map<string, THREE.Object3D>();
   private readonly tracers: Tracer[] = [];
+  private readonly pulses: Pulse[] = [];
   private clock = 0;
   /** MOBA follow-camera offset from the piloted hero. */
   private readonly camOffset = new THREE.Vector3(0, 96, -64);
@@ -109,6 +121,7 @@ export class Renderer {
     this.updatePilotRing(world, pilotedId);
     this.consumeEvents(world);
     this.updateTracers();
+    this.updatePulses();
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -211,7 +224,39 @@ export class Renderer {
         );
         this.scene.add(line);
         this.tracers.push({ line, deadAt: this.clock + 0.12 });
+      } else if (e.kind === "ability" && e.to) {
+        const kind = (e.note ?? "nuke:").split(":")[0];
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(0.6, 1.4, 32),
+          new THREE.MeshBasicMaterial({
+            color: ABILITY_HEX[kind] ?? 0xffffff,
+            side: THREE.DoubleSide, transparent: true, opacity: 0.85,
+          }),
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(e.to.x, 0.5, e.to.z);
+        this.scene.add(ring);
+        this.pulses.push({
+          ring, bornAt: this.clock, dieAt: this.clock + 0.45,
+          endRadius: kind === "heal" || kind === "shield" ? 10 : 14,
+        });
       }
+    }
+  }
+
+  private updatePulses(): void {
+    for (let i = this.pulses.length - 1; i >= 0; i--) {
+      const p = this.pulses[i];
+      const t = (this.clock - p.bornAt) / (p.dieAt - p.bornAt);
+      if (t >= 1) {
+        this.scene.remove(p.ring);
+        p.ring.geometry.dispose();
+        this.pulses.splice(i, 1);
+        continue;
+      }
+      const s = 1 + t * p.endRadius;
+      p.ring.scale.set(s, s, s);
+      (p.ring.material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - t);
     }
   }
 

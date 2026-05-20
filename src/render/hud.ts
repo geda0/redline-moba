@@ -1,6 +1,7 @@
 // DOM HUD overlay — roster panel, match status, controls hint. Pure view:
 // reads World each frame, owns no game state.
 
+import { cooldownRemaining, kitFor } from "../sim/abilities";
 import { heroDef } from "../sim/roster";
 import type { Unit, World } from "../sim/types";
 import { blueHeroes } from "../sim/world";
@@ -24,6 +25,15 @@ const STYLE = `
   border: 1px solid #2a3242; color: #aab4c2; }
 #hud .banner { position: absolute; top: 38%; left: 0; right: 0;
   text-align: center; font-size: 44px; font-weight: 700; }
+#hud .abilities { position: absolute; bottom: 38px; left: 50%;
+  transform: translateX(-50%); display: flex; gap: 6px; }
+#hud .ability { width: 86px; background: #0c0f16dd; border: 1px solid #2a3242;
+  padding: 4px 6px; text-align: center; position: relative; }
+#hud .ability .key { font-weight: 700; color: #ffe066; }
+#hud .ability .nm { font-size: 11px; color: #c2cad6; }
+#hud .ability .cd { position: absolute; inset: 0; background: #000000bb;
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; }
 `;
 
 export class Hud {
@@ -31,6 +41,7 @@ export class Hud {
   private readonly statusEl: HTMLDivElement;
   private readonly rosterEl: HTMLDivElement;
   private readonly bannerEl: HTMLDivElement;
+  private readonly abilityEl: HTMLDivElement;
 
   constructor(container: HTMLElement) {
     const style = document.createElement("style");
@@ -42,10 +53,13 @@ export class Hud {
     this.statusEl = el("div", "status");
     this.rosterEl = el("div", "roster");
     this.bannerEl = el("div", "banner");
+    this.abilityEl = el("div", "abilities");
     const hint = el("div", "hint");
     hint.textContent =
-      "1-5 switch hero · RMB move · A+LMB attack-move · S stop";
-    this.root.append(this.statusEl, this.rosterEl, hint, this.bannerEl);
+      "1-5 switch · RMB move · A+LMB attack-move · Q/W/E/R abilities · S stop";
+    this.root.append(
+      this.statusEl, this.rosterEl, this.abilityEl, hint, this.bannerEl,
+    );
     container.appendChild(this.root);
   }
 
@@ -58,6 +72,7 @@ export class Hud {
 
     const heroes = blueHeroes(world);
     this.syncRoster(heroes, pilotedIndex, world);
+    this.syncAbilities(heroes[pilotedIndex], world);
 
     if (world.matchOver) {
       const won = world.winner === "blue";
@@ -66,6 +81,36 @@ export class Hud {
     } else {
       this.bannerEl.textContent = "";
     }
+  }
+
+  private syncAbilities(hero: Unit | undefined, world: World): void {
+    if (!hero || !hero.heroId) {
+      this.abilityEl.replaceChildren();
+      return;
+    }
+    const kit = kitFor(hero.heroId);
+    if (this.abilityEl.childElementCount !== kit.length) {
+      this.abilityEl.replaceChildren();
+      for (const a of kit) {
+        const cell = el("div", "ability");
+        cell.innerHTML =
+          `<div class="key">${a.slot.toUpperCase()}</div>` +
+          `<div class="nm">${a.name}</div>` +
+          `<div class="cd"></div>`;
+        this.abilityEl.appendChild(cell);
+      }
+    }
+    kit.forEach((a, i) => {
+      const cell = this.abilityEl.children[i] as HTMLElement;
+      const cd = cell.querySelector(".cd") as HTMLElement;
+      const remain = cooldownRemaining(world, hero, a.slot);
+      if (remain > 0.05) {
+        cd.style.display = "flex";
+        cd.textContent = remain >= 1 ? `${Math.ceil(remain)}` : remain.toFixed(1);
+      } else {
+        cd.style.display = "none";
+      }
+    });
   }
 
   private syncRoster(heroes: Unit[], pilotedIndex: number, world: World): void {

@@ -6,6 +6,7 @@
 // the nearest enemy in the sim near the click point — no mesh picking.
 
 import * as THREE from "three";
+import { castAbility, type AbilitySlot } from "../sim/abilities";
 import { dist } from "../sim/lanes";
 import type { Unit, Vec2, World } from "../sim/types";
 import { blueHeroes } from "../sim/world";
@@ -18,6 +19,8 @@ export class PilotController {
   private readonly raycaster = new THREE.Raycaster();
   private readonly groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private aHeld = false;
+  /** Last known cursor position on the ground — abilities cast here. */
+  private cursorGround: Vec2 = { x: 100, z: 100 };
 
   constructor(
     private readonly canvas: HTMLElement,
@@ -27,6 +30,10 @@ export class PilotController {
     this.heroes = blueHeroes(world);
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     canvas.addEventListener("mousedown", (e) => this.onMouseDown(e));
+    canvas.addEventListener("mousemove", (e) => {
+      const g = this.screenToGround(e);
+      if (g) this.cursorGround = g;
+    });
     addEventListener("keydown", (e) => this.onKeyDown(e));
     addEventListener("keyup", (e) => {
       if (e.key.toLowerCase() === "a") this.aHeld = false;
@@ -53,6 +60,14 @@ export class PilotController {
     if (k === "s") {
       const h = this.current();
       if (h) { h.moveGoal = null; h.attackTargetId = null; }
+      return;
+    }
+    // Q/W/E/R — cast the piloted hero's ability at the cursor.
+    if (k === "q" || k === "w" || k === "e" || k === "r") {
+      const h = this.current();
+      if (h && !h.isDead) {
+        castAbility(this.world, h, k as AbilitySlot, this.cursorGround);
+      }
     }
   }
 

@@ -30,8 +30,32 @@ export function nearestEnemy(
   return bestPref ?? best;
 }
 
+/** Apply a flat damage amount to a unit. Shield is consumed before hp.
+ * Emits a `death` event on a kill. The single damage path — fireAt and
+ * ability nukes both route through here. */
+export function dealDamage(world: World, target: Unit, amount: number): void {
+  if (!target.alive || target.isDead || amount <= 0) return;
+  let remaining = amount;
+  if (target.shieldHp && target.shieldHp > 0) {
+    const absorbed = Math.min(target.shieldHp, remaining);
+    target.shieldHp -= absorbed;
+    remaining -= absorbed;
+  }
+  if (remaining > 0) target.hp = Math.max(0, target.hp - remaining);
+  if (target.hp <= 0 && target.alive) {
+    target.alive = false;
+    const death: SimEvent = {
+      kind: "death",
+      unitId: target.id,
+      team: target.team,
+      from: { ...target.pos },
+    };
+    world.events.push(death);
+  }
+}
+
 /** Apply continuous DPS from `source` to `target` for `dt` seconds. Emits a
- * throttled `fire` event and, on a kill, a `death` event. */
+ * throttled `fire` event; damage routes through dealDamage (shield-aware). */
 export function fireAt(
   world: World,
   source: Unit,
@@ -39,7 +63,7 @@ export function fireAt(
   dt: number,
 ): void {
   if (!target.alive || target.isDead) return;
-  target.hp = Math.max(0, target.hp - source.dps * dt);
+  dealDamage(world, target, source.dps * dt);
 
   if (world.time - source.lastFireAt >= TUNING.fireInterval) {
     source.lastFireAt = world.time;
@@ -51,17 +75,6 @@ export function fireAt(
       from: { ...source.pos },
       to: { ...target.pos },
     });
-  }
-
-  if (target.hp <= 0 && target.alive) {
-    target.alive = false;
-    const death: SimEvent = {
-      kind: "death",
-      unitId: target.id,
-      team: target.team,
-      from: { ...target.pos },
-    };
-    world.events.push(death);
   }
 }
 

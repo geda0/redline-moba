@@ -41,17 +41,24 @@ export interface Unit {
   /** Respawn timestamp (world.time) while dead. */
   respawnAt?: number;
   isDead?: boolean;
+
+  // ── abilities (M3) ────────────────────────────────────────────────────
+  /** Ability slot ("q"/"w"/"e"/"r") → world.time when it's castable again. */
+  abilityReadyAt?: Record<string, number>;
+  /** Damage-absorbing shield; consumed before hp. */
+  shieldHp?: number;
 }
 
 export type SimEventKind =
   | "fire"
   | "death"
   | "wave_spawned"
-  | "nexus_destroyed";
+  | "nexus_destroyed"
+  | "ability";
 
 export interface SimEvent {
   kind: SimEventKind;
-  /** Acting unit (shooter, the unit that died, the nexus). */
+  /** Acting unit (shooter, the unit that died, the caster). */
   unitId: string;
   /** Target unit, when relevant (fire). */
   targetId?: string;
@@ -59,6 +66,8 @@ export interface SimEvent {
   /** World positions captured at event time, for the renderer. */
   from?: Vec2;
   to?: Vec2;
+  /** Free-text tag — ability kind, ability name, etc. */
+  note?: string;
 }
 
 export interface World {
